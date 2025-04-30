@@ -1,30 +1,38 @@
-FROM php:8.2-cli
+# Gunakan image PHP + Apache
+FROM php:8.2-apache
 
-# Install system dependencies
+# Install dependensi untuk Laravel
 RUN apt-get update && apt-get install -y \
-    git \
-    unzip \
-    zip \
-    libzip-dev \
-    libonig-dev \
-    libxml2-dev \
-    curl \
-    && docker-php-ext-install zip pdo pdo_mysql
+    git unzip zip libzip-dev libpng-dev libonig-dev curl \
+    && docker-php-ext-install pdo pdo_mysql zip
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set working directory
-WORKDIR /app
+# Set working directory Laravel
+WORKDIR /var/www/html
 
-# Copy project files
+# Copy semua file Laravel ke dalam container
 COPY . .
 
-# Install dependencies
-RUN composer install --no-interaction --prefer-dist --optimize-autoloader
+# Ubah hak akses folder storage dan bootstrap
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage \
+    && chmod -R 755 /var/www/html/bootstrap/cache
 
-# Expose port
-EXPOSE 8000
+# Aktifkan mod_rewrite Apache
+RUN a2enmod rewrite
 
-# Run Laravel server
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Salin konfigurasi Apache
+COPY apache.conf /etc/apache2/sites-available/000-default.conf
+
+# Install dependensi + generate key Laravel saat build
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader && \
+    cp .env.example .env && \
+    php artisan key:generate
+
+# Port default Railway
+EXPOSE 80
+
+# Jalankan Apache
+CMD ["apache2-foreground"]
