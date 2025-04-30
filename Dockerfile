@@ -1,26 +1,30 @@
-# Gunakan image PHP resmi dengan Apache
-FROM php:8.2-apache
+FROM php:8.2-cli
 
-# Install ekstensi dan dependency yang dibutuhkan Laravel
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    git unzip zip libzip-dev libpng-dev libonig-dev curl \
-    && docker-php-ext-install pdo pdo_mysql zip
+    git \
+    unzip \
+    zip \
+    libzip-dev \
+    libonig-dev \
+    libxml2-dev \
+    curl \
+    && docker-php-ext-install zip pdo pdo_mysql
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Set working directory
-WORKDIR /var/www/html
+WORKDIR /app
 
-# Copy semua file ke container
+# Copy project files
 COPY . .
 
-# Ubah hak akses
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 755 /var/www/html/storage
+# Install dependencies
+RUN composer install --no-interaction --prefer-dist --optimize-autoloader
 
-# Aktifkan rewrite module Apache
-RUN a2enmod rewrite
+# Expose port
+EXPOSE 8000
 
-# Konfigurasi Apache
-COPY ./apache.conf /etc/apache2/sites-available/000-default.conf
+# Run Laravel server
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
